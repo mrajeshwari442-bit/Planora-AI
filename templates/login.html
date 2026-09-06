@@ -1,12 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>Planora AI - Login</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body class="auth-body">
@@ -18,9 +20,7 @@
 
         <h1>Planora <span>AI</span></h1>
 
-        <p>
-            Your intelligent study planner
-        </p>
+        <p>Your intelligent study planner</p>
     </div>
 
 
@@ -36,36 +36,33 @@
                 Login to continue your study journey
             </p>
 
-            {% if error %}
-            <div class="server-error">
-                {{ error }}
-            </div>
-            {% endif %}
 
-            <form method="POST" action="{{ url_for('login') }}">
+            <form id="loginForm">
 
                 <label>Email</label>
 
                 <div class="input-box">
+
                     <span>📧</span>
 
                     <input
                         type="email"
-                        name="email"
+                        id="loginEmail"
                         placeholder="Enter your email"
                         required
                     >
+
                 </div>
 
 
                 <label>Password</label>
 
                 <div class="input-box">
+
                     <span>🔒</span>
 
                     <input
                         type="password"
-                        name="password"
                         id="loginPassword"
                         placeholder="Enter your password"
                         required
@@ -78,14 +75,21 @@
                     >
                         👁️
                     </button>
+
                 </div>
 
 
-                <button class="primary-btn" type="submit">
+                <button
+                    class="primary-btn"
+                    type="submit"
+                >
                     Login →
                 </button>
 
             </form>
+
+
+            <div id="loginMessage"></div>
 
 
             <div class="divider">
@@ -107,9 +111,13 @@
 
         <div id="signupSection" class="hidden">
 
-            <button class="back-btn" onclick="showLogin()">
+            <button
+                class="back-btn"
+                onclick="showLogin()"
+            >
                 ← Back to Login
             </button>
+
 
             <h2>Create account 🚀</h2>
 
@@ -123,39 +131,43 @@
                 <label>Username</label>
 
                 <div class="input-box">
+
                     <span>👤</span>
 
                     <input
                         type="text"
-                        name="username"
+                        id="signupUsername"
                         placeholder="Enter your name"
                         required
                     >
+
                 </div>
 
 
                 <label>Email</label>
 
                 <div class="input-box">
+
                     <span>📧</span>
 
                     <input
                         type="email"
-                        name="email"
+                        id="signupEmail"
                         placeholder="Enter your email"
                         required
                     >
+
                 </div>
 
 
                 <label>Password</label>
 
                 <div class="input-box">
+
                     <span>🔒</span>
 
                     <input
                         type="password"
-                        name="password"
                         id="signupPassword"
                         placeholder="Minimum 6 characters"
                         minlength="6"
@@ -169,10 +181,14 @@
                     >
                         👁️
                     </button>
+
                 </div>
 
 
-                <button class="primary-btn" type="submit">
+                <button
+                    class="primary-btn"
+                    type="submit"
+                >
                     Create Account →
                 </button>
 
@@ -193,91 +209,381 @@
 </div>
 
 
-<script>
+<!-- FIREBASE -->
 
-function showSignup() {
+<script type="module">
 
-    document.getElementById("loginSection")
-        .classList.add("hidden");
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-    document.getElementById("signupSection")
-        .classList.remove("hidden");
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    updateProfile
 }
+from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 
-function showLogin() {
+const firebaseConfig = {
 
-    document.getElementById("signupSection")
-        .classList.add("hidden");
+    apiKey: "AIzaSyBeVWkWb5m0EG_2YEqy1LMVDvnZ6nmw7kY",
 
-    document.getElementById("loginSection")
-        .classList.remove("hidden");
-}
+    authDomain: "planora-ai-b94c8.firebaseapp.com",
+
+    projectId: "planora-ai-b94c8",
+
+    storageBucket: "planora-ai-b94c8.firebasestorage.app",
+
+    messagingSenderId: "536412377280",
+
+    appId: "1:536412377280:web:613111d641454b59e21d25"
+
+};
 
 
-function togglePassword(id, button) {
+const firebaseApp = initializeApp(firebaseConfig);
+
+const auth = getAuth(firebaseApp);
+
+
+
+/* SHOW SIGNUP */
+
+window.showSignup = function () {
+
+    document
+        .getElementById("loginSection")
+        .classList
+        .add("hidden");
+
+    document
+        .getElementById("signupSection")
+        .classList
+        .remove("hidden");
+
+};
+
+
+
+/* SHOW LOGIN */
+
+window.showLogin = function () {
+
+    document
+        .getElementById("signupSection")
+        .classList
+        .add("hidden");
+
+    document
+        .getElementById("loginSection")
+        .classList
+        .remove("hidden");
+
+};
+
+
+
+/* SHOW / HIDE PASSWORD */
+
+window.togglePassword = function (id, button) {
 
     const input = document.getElementById(id);
 
     if (input.type === "password") {
 
         input.type = "text";
+
         button.textContent = "🙈";
 
     } else {
 
         input.type = "password";
+
         button.textContent = "👁️";
+
     }
+
+};
+
+
+
+/* SEND FIREBASE TOKEN TO FLASK */
+
+async function sendTokenToFlask(user) {
+
+    const idToken = await user.getIdToken();
+
+    const response = await fetch(
+        "/auth/firebase-login",
+        {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                idToken: idToken
+            })
+
+        }
+    );
+
+    return await response.json();
+
 }
 
 
-document.getElementById("signupForm").addEventListener(
-    "submit",
-    async function(event) {
 
-        event.preventDefault();
+/* LOGIN */
 
-        const formData = new FormData(this);
+document
+    .getElementById("loginForm")
+    .addEventListener(
+        "submit",
+        async function (event) {
 
-        const message =
-            document.getElementById("signupMessage");
+            event.preventDefault();
 
-        message.innerHTML =
-            '<div class="loading-message">Creating account...</div>';
 
-        try {
+            const email =
+                document
+                    .getElementById("loginEmail")
+                    .value
+                    .trim();
 
-            const response = await fetch("/signup", {
-                method: "POST",
-                body: formData
-            });
 
-            const result = await response.json();
+            const password =
+                document
+                    .getElementById("loginPassword")
+                    .value;
 
-            if (result.success) {
 
-                message.innerHTML =
-                    '<div class="success-message">✅ Account created! Redirecting...</div>';
+            const message =
+                document.getElementById(
+                    "loginMessage"
+                );
 
-                setTimeout(() => {
-                    window.location.href = "/dashboard";
-                }, 700);
-
-            } else {
-
-                message.innerHTML =
-                    `<div class="server-error">${result.message}</div>`;
-            }
-
-        } catch (error) {
 
             message.innerHTML =
-                '<div class="server-error">Something went wrong. Please try again.</div>';
-        }
+                '<div class="loading-message">Logging in...</div>';
 
-    }
-);
+
+            try {
+
+                const userCredential =
+                    await signInWithEmailAndPassword(
+                        auth,
+                        email,
+                        password
+                    );
+
+
+                const user =
+                    userCredential.user;
+
+
+                const result =
+                    await sendTokenToFlask(user);
+
+
+                if (result.success) {
+
+                    message.innerHTML =
+                        '<div class="success-message">✅ Login successful! Redirecting...</div>';
+
+
+                    setTimeout(() => {
+
+                        window.location.href =
+                            "/dashboard";
+
+                    }, 700);
+
+                } else {
+
+                    message.innerHTML =
+                        `<div class="server-error">${result.message}</div>`;
+
+                }
+
+            } catch (error) {
+
+                console.error(error);
+
+
+                let errorMessage =
+                    "Login failed. Please try again.";
+
+
+                if (
+                    error.code ===
+                    "auth/invalid-credential"
+                ) {
+
+                    errorMessage =
+                        "Incorrect email or password.";
+
+                }
+
+
+                message.innerHTML =
+                    `<div class="server-error">${errorMessage}</div>`;
+
+            }
+
+        }
+    );
+
+
+
+/* CREATE ACCOUNT */
+
+document
+    .getElementById("signupForm")
+    .addEventListener(
+        "submit",
+        async function (event) {
+
+            event.preventDefault();
+
+
+            const username =
+                document
+                    .getElementById("signupUsername")
+                    .value
+                    .trim();
+
+
+            const email =
+                document
+                    .getElementById("signupEmail")
+                    .value
+                    .trim();
+
+
+            const password =
+                document
+                    .getElementById("signupPassword")
+                    .value;
+
+
+            const message =
+                document.getElementById(
+                    "signupMessage"
+                );
+
+
+            message.innerHTML =
+                '<div class="loading-message">Creating account...</div>';
+
+
+            try {
+
+                /* CREATE FIREBASE USER */
+
+                const userCredential =
+                    await createUserWithEmailAndPassword(
+                        auth,
+                        email,
+                        password
+                    );
+
+
+                const user =
+                    userCredential.user;
+
+
+                /* SAVE USERNAME */
+
+                await updateProfile(
+                    user,
+                    {
+                        displayName: username
+                    }
+                );
+
+
+                /* REFRESH TOKEN */
+
+                await user.getIdToken(true);
+
+
+                /* SEND TOKEN TO FLASK */
+
+                const result =
+                    await sendTokenToFlask(user);
+
+
+                if (result.success) {
+
+                    message.innerHTML =
+                        '<div class="success-message">✅ Account created! Redirecting...</div>';
+
+
+                    setTimeout(() => {
+
+                        window.location.href =
+                            "/dashboard";
+
+                    }, 700);
+
+                } else {
+
+                    message.innerHTML =
+                        `<div class="server-error">${result.message}</div>`;
+
+                }
+
+            } catch (error) {
+
+                console.error(error);
+
+
+                let errorMessage =
+                    "Account creation failed.";
+
+
+                if (
+                    error.code ===
+                    "auth/email-already-in-use"
+                ) {
+
+                    errorMessage =
+                        "This email is already registered.";
+
+                }
+
+                else if (
+                    error.code ===
+                    "auth/weak-password"
+                ) {
+
+                    errorMessage =
+                        "Password must contain at least 6 characters.";
+
+                }
+
+                else if (
+                    error.code ===
+                    "auth/invalid-email"
+                ) {
+
+                    errorMessage =
+                        "Please enter a valid email.";
+
+                }
+
+
+                message.innerHTML =
+                    `<div class="server-error">${errorMessage}</div>`;
+
+            }
+
+        }
+    );
 
 </script>
 

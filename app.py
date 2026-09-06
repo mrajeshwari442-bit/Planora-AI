@@ -1,9 +1,16 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-import json
 import os
 from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
+
 from dotenv import load_dotenv
+
+# =========================================================
+# FIREBASE
+# =========================================================
+
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
+
 
 # =========================================================
 # GEMINI
@@ -13,7 +20,7 @@ from google import genai
 
 
 # =========================================================
-# LOAD ENVIRONMENT
+# LOAD ENVIRONMENT VARIABLES
 # =========================================================
 
 load_dotenv()
@@ -32,19 +39,55 @@ app.secret_key = os.getenv(
 
 
 # =========================================================
-# DATABASE
+# FIREBASE ADMIN + FIRESTORE
 # =========================================================
 
-DATABASE_FILE = "database.json"
+db = None
+
+try:
+
+    firebase_key_path = "firebase-key.json"
+
+    if not firebase_admin._apps:
+
+        if os.path.exists(firebase_key_path):
+
+            cred = credentials.Certificate(
+                firebase_key_path
+            )
+
+            firebase_admin.initialize_app(cred)
+
+            print("Firebase connected successfully")
+
+        else:
+
+            print("firebase-key.json not found")
+
+    if firebase_admin._apps:
+
+        db = firestore.client()
+
+        print("Firestore connected successfully")
+
+except Exception as error:
+
+    print("Firebase connection error:")
+    print(error)
+
+    db = None
 
 
 # =========================================================
 # GEMINI AI
 # =========================================================
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_API_KEY = os.getenv(
+    "GEMINI_API_KEY"
+)
 
 gemini_client = None
+
 
 if GEMINI_API_KEY:
 
@@ -54,82 +97,16 @@ if GEMINI_API_KEY:
             api_key=GEMINI_API_KEY
         )
 
-        print("✅ Gemini AI connected successfully")
+        print("Gemini AI connected successfully")
 
     except Exception as error:
 
-        print("❌ Gemini connection error:")
+        print("Gemini connection error:")
         print(error)
 
 else:
 
-    print("⚠️ GEMINI_API_KEY not found")
-
-
-# =========================================================
-# DATABASE FUNCTIONS
-# =========================================================
-
-def load_database():
-
-    if not os.path.exists(DATABASE_FILE):
-
-        data = {
-            "users": {},
-            "plans": []
-        }
-
-        save_database(data)
-
-        return data
-
-    try:
-
-        with open(
-            DATABASE_FILE,
-            "r",
-            encoding="utf-8"
-        ) as file:
-
-            data = json.load(file)
-
-        data.setdefault(
-            "users",
-            {}
-        )
-
-        data.setdefault(
-            "plans",
-            []
-        )
-
-        return data
-
-    except (
-        json.JSONDecodeError,
-        OSError
-    ):
-
-        return {
-            "users": {},
-            "plans": []
-        }
-
-
-def save_database(data):
-
-    with open(
-        DATABASE_FILE,
-        "w",
-        encoding="utf-8"
-    ) as file:
-
-        json.dump(
-            data,
-            file,
-            indent=4,
-            ensure_ascii=False
-        )
+    print("GEMINI_API_KEY not found")
 
 
 # =========================================================
@@ -151,77 +128,13 @@ def home():
 
 
 # =========================================================
-# LOGIN
+# LOGIN PAGE
 # =========================================================
 
-@app.route(
-    "/login",
-    methods=["GET", "POST"]
-)
+@app.route("/login")
 def login():
 
     if "user" in session:
-
-        return redirect(
-            url_for("dashboard")
-        )
-
-    if request.method == "POST":
-
-        email = request.form.get(
-            "email",
-            ""
-        ).strip().lower()
-
-        password = request.form.get(
-            "password",
-            ""
-        )
-
-        if not email or not password:
-
-            return render_template(
-                "login.html",
-                error="Please enter email and password."
-            )
-
-        data = load_database()
-
-        user = data["users"].get(
-            email
-        )
-
-        if not user:
-
-            return render_template(
-                "login.html",
-                error="Account not found. Please create an account."
-            )
-
-        try:
-
-            password_correct = check_password_hash(
-                user["password"],
-                password
-            )
-
-        except Exception:
-
-            password_correct = False
-
-        if not password_correct:
-
-            return render_template(
-                "login.html",
-                error="Incorrect password."
-            )
-
-        session["user"] = email
-
-        session["username"] = user.get(
-            "username",
-            "Student"
-        )
 
         return redirect(
             url_for("dashboard")
@@ -233,82 +146,202 @@ def login():
 
 
 # =========================================================
-# SIGNUP
+# FIREBASE LOGIN
 # =========================================================
 
 @app.route(
-    "/signup",
+    "/auth/firebase-login",
     methods=["POST"]
 )
-def signup():
+def firebase_login():
 
-    username = request.form.get(
-        "username",
-        ""
+    if db is None:
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Firebase is not configured."
+
+        }), 500
+
+
+    data = request.get_json(
+        silent=True
+    )
+
+
+    if not data:
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Invalid request."
+
+        }), 400
+
+
+    # Get Firebase ID Token
+
+    id_token = str(
+
+        data.get(
+            "idToken",
+            ""
+        )
+
     ).strip()
 
-    email = request.form.get(
-        "email",
-        ""
-    ).strip().lower()
 
-    password = request.form.get(
-        "password",
-        ""
-    )
-
-    if not username or not email or not password:
+    if not id_token:
 
         return jsonify({
+
             "success": False,
-            "message": "Please fill all fields."
+
+            "message":
+                "Authentication token is missing."
+
         }), 400
 
-    if len(password) < 6:
+
+    try:
+
+        # =================================================
+        # VERIFY FIREBASE TOKEN
+        # =================================================
+
+        decoded_token = auth.verify_id_token(
+            id_token
+        )
+
+
+        # =================================================
+        # GET USER DETAILS
+        # =================================================
+
+        uid = decoded_token.get(
+            "uid"
+        )
+
+
+        email = decoded_token.get(
+            "email",
+            ""
+        ).lower()
+
+
+        username = decoded_token.get(
+            "name",
+            ""
+        )
+
+
+        if not email:
+
+            return jsonify({
+
+                "success": False,
+
+                "message":
+                    "Email not found."
+
+            }), 400
+
+
+        if not username:
+
+            username = email.split("@")[0]
+
+
+        # =================================================
+        # FIRESTORE USER DOCUMENT
+        # =================================================
+
+        user_ref = (
+
+            db.collection("users")
+            .document(uid)
+
+        )
+
+
+        user_doc = user_ref.get()
+
+
+        # =================================================
+        # CREATE USER IF NOT EXISTS
+        # =================================================
+
+        if not user_doc.exists:
+
+            user_ref.set({
+
+                "uid": uid,
+
+                "username": username,
+
+                "email": email,
+
+                "created_at":
+                    datetime.now().isoformat()
+
+            })
+
+
+        else:
+
+            user_data = user_doc.to_dict()
+
+            username = user_data.get(
+
+                "username",
+
+                username
+
+            )
+
+
+        # =================================================
+        # CREATE FLASK SESSION
+        # =================================================
+
+        session["user"] = uid
+
+        session["email"] = email
+
+        session["username"] = username
+
 
         return jsonify({
-            "success": False,
-            "message": "Password must contain at least 6 characters."
-        }), 400
 
-    data = load_database()
+            "success": True,
 
-    if email in data["users"]:
+            "message":
+                "Login successful.",
+
+            "username": username
+
+        })
+
+
+    except Exception as error:
+
+        print("Firebase login error:")
+        print(error)
+
 
         return jsonify({
+
             "success": False,
-            "message": "An account with this email already exists."
-        }), 409
 
-    data["users"][email] = {
+            "message":
+                "Authentication failed."
 
-        "username": username,
-
-        "email": email,
-
-        "password": generate_password_hash(
-            password
-        ),
-
-        "created_at": datetime.now().isoformat()
-
-    }
-
-    save_database(
-        data
-    )
-
-    session["user"] = email
-
-    session["username"] = username
-
-    return jsonify({
-
-        "success": True,
-
-        "message": "Account created successfully!"
-
-    })
+        }), 401
 
 
 # =========================================================
@@ -324,6 +357,7 @@ def dashboard():
             url_for("login")
         )
 
+
     return render_template(
 
         "index.html",
@@ -334,7 +368,7 @@ def dashboard():
         ),
 
         email=session.get(
-            "user",
+            "email",
             ""
         )
 
@@ -351,20 +385,25 @@ def current_user():
     if "user" not in session:
 
         return jsonify({
+
             "success": False
+
         }), 401
+
 
     return jsonify({
 
         "success": True,
 
-        "username": session.get(
-            "username"
-        ),
+        "username":
+            session.get(
+                "username"
+            ),
 
-        "email": session.get(
-            "user"
-        )
+        "email":
+            session.get(
+                "email"
+            )
 
     })
 
@@ -385,13 +424,28 @@ def save_plan():
 
             "success": False,
 
-            "message": "Please login first."
+            "message":
+                "Please login first."
 
         }), 401
+
+
+    if db is None:
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Firestore is not connected."
+
+        }), 500
+
 
     plan = request.get_json(
         silent=True
     )
+
 
     if not plan:
 
@@ -399,43 +453,72 @@ def save_plan():
 
             "success": False,
 
-            "message": "Invalid plan."
+            "message":
+                "Invalid plan."
 
         }), 400
 
-    data = load_database()
 
-    plan["id"] = datetime.now().strftime(
-        "%Y%m%d%H%M%S%f"
-    )
+    try:
 
-    plan["email"] = session["user"]
+        uid = session["user"]
 
-    plan["created_at"] = (
-        datetime.now().isoformat()
-    )
 
-    data["plans"].append(
-        plan
-    )
+        # =================================================
+        # FIRESTORE AUTO ID
+        # =================================================
 
-    save_database(
-        data
-    )
+        plan_ref = (
 
-    return jsonify({
+            db.collection("users")
+            .document(uid)
+            .collection("plans")
+            .document()
 
-        "success": True,
+        )
 
-        "message": "Study plan saved successfully!",
 
-        "plan": plan
+        plan["id"] = plan_ref.id
 
-    })
+
+        plan["created_at"] = (
+            datetime.now().isoformat()
+        )
+
+
+        plan_ref.set(plan)
+
+
+        return jsonify({
+
+            "success": True,
+
+            "message":
+                "Study plan saved successfully!",
+
+            "plan": plan
+
+        })
+
+
+    except Exception as error:
+
+        print("Firestore save error:")
+        print(error)
+
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Failed to save study plan."
+
+        }), 500
 
 
 # =========================================================
-# GET PLANS
+# GET STUDY PLANS
 # =========================================================
 
 @app.route("/api/plans")
@@ -447,31 +530,73 @@ def get_plans():
 
             "success": False,
 
-            "message": "Please login first."
+            "message":
+                "Please login first."
 
         }), 401
 
-    data = load_database()
 
-    email = session["user"]
+    if db is None:
 
-    plans = [
+        return jsonify({
 
-        plan
+            "success": False,
 
-        for plan in data["plans"]
+            "message":
+                "Firestore is not connected."
 
-        if plan.get("email") == email
+        }), 500
 
-    ]
 
-    return jsonify({
+    try:
 
-        "success": True,
+        uid = session["user"]
 
-        "plans": plans
 
-    })
+        plans_ref = (
+
+            db.collection("users")
+            .document(uid)
+            .collection("plans")
+
+        )
+
+
+        plans = []
+
+
+        for document in plans_ref.stream():
+
+            plan = document.to_dict()
+
+            plan["id"] = document.id
+
+            plans.append(plan)
+
+
+        return jsonify({
+
+            "success": True,
+
+            "plans": plans
+
+        })
+
+
+    except Exception as error:
+
+        print("Firestore fetch error:")
+        print(error)
+
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Failed to load plans."
+
+        }), 500
 
 
 # =========================================================
@@ -487,56 +612,81 @@ def delete_plan(plan_id):
     if "user" not in session:
 
         return jsonify({
+
             "success": False
+
         }), 401
 
-    data = load_database()
 
-    email = session["user"]
-
-    old_count = len(
-        data["plans"]
-    )
-
-    data["plans"] = [
-
-        plan
-
-        for plan in data["plans"]
-
-        if not (
-
-            plan.get("id") == plan_id
-
-            and
-
-            plan.get("email") == email
-
-        )
-
-    ]
-
-    save_database(
-        data
-    )
-
-    if len(data["plans"]) == old_count:
+    if db is None:
 
         return jsonify({
 
             "success": False,
 
-            "message": "Plan not found."
+            "message":
+                "Firestore is not connected."
 
-        }), 404
+        }), 500
 
-    return jsonify({
 
-        "success": True,
+    try:
 
-        "message": "Plan deleted."
+        uid = session["user"]
 
-    })
+
+        plan_ref = (
+
+            db.collection("users")
+            .document(uid)
+            .collection("plans")
+            .document(plan_id)
+
+        )
+
+
+        plan_doc = plan_ref.get()
+
+
+        if not plan_doc.exists:
+
+            return jsonify({
+
+                "success": False,
+
+                "message":
+                    "Plan not found."
+
+            }), 404
+
+
+        plan_ref.delete()
+
+
+        return jsonify({
+
+            "success": True,
+
+            "message":
+                "Plan deleted."
+
+        })
+
+
+    except Exception as error:
+
+        print("Firestore delete error:")
+        print(error)
+
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Failed to delete plan."
+
+        }), 500
 
 
 # =========================================================
@@ -552,38 +702,74 @@ def clear_plans():
     if "user" not in session:
 
         return jsonify({
+
             "success": False
+
         }), 401
 
-    data = load_database()
 
-    email = session["user"]
+    if db is None:
 
-    data["plans"] = [
+        return jsonify({
 
-        plan
+            "success": False,
 
-        for plan in data["plans"]
+            "message":
+                "Firestore is not connected."
 
-        if plan.get("email") != email
+        }), 500
 
-    ]
 
-    save_database(
-        data
-    )
+    try:
 
-    return jsonify({
+        uid = session["user"]
 
-        "success": True,
 
-        "message": "All plans cleared."
+        plans_ref = (
 
-    })
+            db.collection("users")
+            .document(uid)
+            .collection("plans")
+
+        )
+
+
+        documents = plans_ref.stream()
+
+
+        for document in documents:
+
+            document.reference.delete()
+
+
+        return jsonify({
+
+            "success": True,
+
+            "message":
+                "All plans cleared."
+
+        })
+
+
+    except Exception as error:
+
+        print("Firestore clear error:")
+        print(error)
+
+
+        return jsonify({
+
+            "success": False,
+
+            "message":
+                "Failed to clear plans."
+
+        }), 500
 
 
 # =========================================================
-# 🤖 GEMINI AI CHAT
+# GEMINI AI CHAT
 # =========================================================
 
 @app.route(
@@ -592,24 +778,17 @@ def clear_plans():
 )
 def chat():
 
-    # -----------------------------------------------------
-    # LOGIN CHECK
-    # -----------------------------------------------------
-
     if "user" not in session:
 
         return jsonify({
 
             "success": False,
 
-            "message": "Please login first."
+            "message":
+                "Please login first."
 
         }), 401
 
-
-    # -----------------------------------------------------
-    # GEMINI CHECK
-    # -----------------------------------------------------
 
     if gemini_client is None:
 
@@ -617,18 +796,16 @@ def chat():
 
             "success": False,
 
-            "message": "Gemini AI is not configured. Please check GEMINI_API_KEY in .env."
+            "message":
+                "Gemini AI is not configured."
 
         }), 500
 
 
-    # -----------------------------------------------------
-    # REQUEST DATA
-    # -----------------------------------------------------
-
     data = request.get_json(
         silent=True
     )
+
 
     if not data:
 
@@ -636,16 +813,19 @@ def chat():
 
             "success": False,
 
-            "message": "Invalid request."
+            "message":
+                "Invalid request."
 
         }), 400
 
 
     question = str(
+
         data.get(
             "message",
             ""
         )
+
     ).strip()
 
 
@@ -655,14 +835,11 @@ def chat():
 
             "success": False,
 
-            "message": "Please enter a question."
+            "message":
+                "Please enter a question."
 
         }), 400
 
-
-    # -----------------------------------------------------
-    # USER NAME
-    # -----------------------------------------------------
 
     username = session.get(
         "username",
@@ -670,120 +847,78 @@ def chat():
     )
 
 
-    # -----------------------------------------------------
-    # PLANORA AI PROMPT
-    # -----------------------------------------------------
-
     prompt = f"""
+You are Planora AI, an intelligent and friendly AI study planning assistant.
 
-You are Planora AI, an intelligent and friendly AI study
-planning assistant.
+Student name: {username}
 
-Student name:
-{username}
+You help students with:
 
-Your main purpose is to help students with:
+- Study planning
+- Exam preparation
+- Revision strategies
+- Time management
+- Subject-wise preparation
+- Daily study schedules
+- Important topics
+- Learning strategies
+- Practice questions
+- Mock test preparation
 
-📚 Study planning
-📝 Exam preparation
-🔄 Revision strategies
-⏰ Time management
-📖 Subject-wise preparation
-📅 Daily study schedules
-🎯 Important topics
-🧠 Learning strategies
-✍️ Practice questions
-📊 Mock test preparation
-
-IMPORTANT RULES:
-
-1. Give practical and realistic study advice.
-
-2. Keep answers simple and easy for students to understand.
-
-3. If the student provides an exam date, calculate the preparation
-   schedule based on that information.
-
-4. If the student provides the number of days, use those days.
-
-5. If the student provides daily study hours, divide the schedule
-   according to those hours.
-
-6. If subjects are provided, prioritize difficult or important
-   subjects.
-
-7. Include revision and practice when creating study plans.
-
-8. Suggest short breaks during long study sessions.
-
-9. Use headings, bullet points and tables when useful.
-
-10. If the student asks for a day-wise study plan, provide a
-    clear Day 1, Day 2, Day 3 style schedule.
-
-11. If some information is missing, make a reasonable assumption
-    instead of repeatedly asking questions when a useful answer
-    can still be provided.
-
-12. You are a study assistant and should stay focused on
-    education, study planning and exam preparation.
-
-13. Do not provide unsafe or harmful instructions.
-
-Student's question:
+Student question:
 
 {question}
 
-Now provide the best helpful answer.
+Give a practical, clear and student-friendly answer.
 """
 
-
-    # -----------------------------------------------------
-    # GEMINI REQUEST
-    # -----------------------------------------------------
 
     try:
 
         print("=" * 60)
 
-        print("🤖 Gemini request received")
+        print("Gemini request received")
 
-        print("👤 Student:", username)
+        print(
+            "Student:",
+            username
+        )
 
-        print("💬 Question:", question)
+        print(
+            "Question:",
+            question
+        )
 
         print("=" * 60)
 
 
-        result = gemini_client.models.generate_content(
+        result = (
 
-            model="gemini-3.6-flash",
+            gemini_client
+            .models
+            .generate_content(
 
-            contents=prompt
+                model="gemini-3.6-flash",
+
+                contents=prompt
+
+            )
 
         )
 
 
-        # -------------------------------------------------
-        # GET RESPONSE TEXT
-        # -------------------------------------------------
-
         answer = getattr(
+
             result,
+
             "text",
+
             None
+
         )
 
 
         if not answer:
-
-            print(
-                "⚠️ Gemini returned empty response."
-            )
-
-            print(
-                result
-            )
 
             return jsonify({
 
@@ -793,9 +928,6 @@ Now provide the best helpful answer.
                     "Gemini returned an empty response."
 
             }), 500
-
-
-        print("✅ Gemini response received")
 
 
         return jsonify({
@@ -809,21 +941,19 @@ Now provide the best helpful answer.
 
     except Exception as error:
 
-        # -------------------------------------------------
-        # IMPORTANT DEBUG OUTPUT
-        # -------------------------------------------------
+        print("=" * 60)
 
-        print("")
+        print("GEMINI ERROR")
+
+        print(
+            type(error).__name__
+        )
+
+        print(
+            str(error)
+        )
+
         print("=" * 60)
-        print("❌ GEMINI ERROR")
-        print("=" * 60)
-        print("ERROR TYPE:")
-        print(type(error).__name__)
-        print("")
-        print("ERROR MESSAGE:")
-        print(str(error))
-        print("=" * 60)
-        print("")
 
 
         return jsonify({
@@ -831,7 +961,7 @@ Now provide the best helpful answer.
             "success": False,
 
             "message":
-                "AI service is temporarily unavailable. Check the terminal for the Gemini error."
+                "AI service is temporarily unavailable."
 
         }), 500
 
@@ -874,34 +1004,45 @@ if __name__ == "__main__":
 
     print("=" * 55)
 
-    print(
-        "📚 PLANORA AI"
-    )
+    print("PLANORA AI")
 
-    print(
-        "🤖 AI Study Planner"
-    )
+    print("AI Study Planner")
 
     print("=" * 55)
 
-    print(
-        "💾 Local database enabled"
-    )
 
-    if GEMINI_API_KEY:
+    if db:
 
         print(
-            "🤖 Gemini API key detected"
+            "Firebase connected"
+        )
+
+        print(
+            "Firestore connected"
         )
 
     else:
 
         print(
-            "⚠️ Gemini API key NOT detected"
+            "Firebase not connected"
         )
 
+
+    if GEMINI_API_KEY:
+
+        print(
+            "Gemini API key detected"
+        )
+
+    else:
+
+        print(
+            "Gemini API key NOT detected"
+        )
+
+
     print(
-        "🌐 http://127.0.0.1:5000"
+        "http://127.0.0.1:5000"
     )
 
     print("=" * 55)
