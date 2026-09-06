@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Planora AI - Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+<div class="dashboard">
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside class="sidebar">
+
+        <div class="sidebar-logo">
+
+            <div class="small-logo">
+                📚
+            </div>
+
+            <div>
+                <strong>Planora</strong>
+                <span>AI</span>
+            </div>
+
+        </div>
+
+
+        <nav>
+
+            <button
+                class="nav-item active"
+                onclick="showSection('dashboardSection', this)"
+            >
+                🏠
+                <span>Dashboard</span>
+            </button>
+
+
+            <button
+                class="nav-item"
+                onclick="showSection('plannerSection', this)"
+            >
+                📅
+                <span>Study Planner</span>
+            </button>
+
+
+            <button
+                class="nav-item"
+                onclick="showSection('plansSection', this)"
+            >
+                📚
+                <span>My Plans</span>
+            </button>
+
+
+            <button
+                class="nav-item"
+                onclick="showSection('aiSection', this)"
+            >
+                🤖
+                <span>AI Assistant</span>
+            </button>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <button
+                class="nav-item"
+                onclick="toggleTheme()"
+            >
+                🌙
+                <span>Dark Mode</span>
+            </button>
+
+
+            <a
+                href="/logout"
+                class="logout-btn"
+            >
+                🚪
+                <span>Logout</span>
+            </a>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- =====================================================
+         MAIN CONTENT
+    ====================================================== -->
+
+    <main class="main-content">
+
+
+        <!-- =================================================
+             TOPBAR
+        ================================================== -->
+
+        <header class="topbar">
+
+            <div>
+
+                <p class="welcome-small">
+                    Welcome back,
+                </p>
+
+                <h2>
+                    {{ username }} 👋
+                </h2>
+
+            </div>
+
+
+            <div class="profile">
+
+                <div class="avatar">
+                    {{ username[0]|upper }}
+                </div>
+
+                <div>
+
+                    <strong>
+                        {{ username }}
+                    </strong>
+
+                    <small>
+                        Student
+                    </small>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- =================================================
+             DASHBOARD SECTION
+        ================================================== -->
+
+        <section
+            id="dashboardSection"
+            class="content-section active-section"
+        >
+
+            <div class="hero-card">
+
+                <div>
+
+                    <span class="hero-label">
+                        ✨ AI STUDY PLANNER
+                    </span>
+
+                    <h1>
+                        Study smarter,<br>
+                        achieve more.
+                    </h1>
+
+                    <p>
+                        Create personalized study plans,
+                        organize your subjects and stay
+                        consistent with your goals.
+                    </p>
+
+                    <button
+                        class="hero-btn"
+                        onclick="openPlanner()"
+                    >
+                        Create Study Plan →
+                    </button>
+
+                </div>
+
+
+                <div class="hero-icon">
+                    🎓
+                </div>
+
+            </div>
+
+
+
+            <!-- =================================================
+                 STATS
+            ================================================== -->
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        📚
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Total Plans
+                        </span>
+
+                        <strong id="totalPlans">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        📖
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Subjects
+                        </span>
+
+                        <strong id="totalSubjects">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        ⏰
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Study Hours
+                        </span>
+
+                        <strong id="totalHours">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <div class="stat-card">
+
+                    <div class="stat-icon">
+                        🎯
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Goal
+                        </span>
+
+                        <strong>
+                            Focus
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <!-- =================================================
+                 QUICK ACTIONS
+            ================================================== -->
+
+            <div class="section-title">
+
+                <div>
+
+                    <h2>
+                        Quick Actions
+                    </h2>
+
+                    <p>
+                        What would you like to do?
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="quick-grid">
+
+
+                <button
+                    class="quick-card"
+                    onclick="openPlanner()"
+                >
+
+                    <div>
+                        📅
+                    </div>
+
+                    <strong>
+                        Create Plan
+                    </strong>
+
+                    <span>
+                        Build a personalized study schedule
+                    </span>
+
+                </button>
+
+
+
+                <button
+                    class="quick-card"
+                    onclick="showSection('plansSection')"
+                >
+
+                    <div>
+                        📚
+                    </div>
+
+                    <strong>
+                        View Plans
+                    </strong>
+
+                    <span>
+                        Check your saved study plans
+                    </span>
+
+                </button>
+
+
+
+                <button
+                    class="quick-card"
+                    onclick="showSection('aiSection')"
+                >
+
+                    <div>
+                        🤖
+                    </div>
+
+                    <strong>
+                        AI Assistant
+                    </strong>
+
+                    <span>
+                        Get help with your studies
+                    </span>
+
+                </button>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             STUDY PLANNER
+        ================================================== -->
+
+        <section
+            id="plannerSection"
+            class="content-section"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        📅 Study Planner
+                    </h1>
+
+                    <p>
+                        Create your personalized study plan.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="planner-card">
+
+                <form id="plannerForm">
+
+
+                    <div class="form-grid">
+
+
+                        <!-- SUBJECTS -->
+
+                        <div class="form-group">
+
+                            <label>
+                                📚 Subjects
+                            </label>
+
+                            <input
+                                type="text"
+                                id="subjects"
+                                placeholder="e.g. Python, DBMS, AI, Maths"
+                                required
+                            >
+
+                            <small>
+                                Separate subjects with commas
+                            </small>
+
+                        </div>
+
+
+
+                        <!-- EXAM DATE -->
+
+                        <div class="form-group">
+
+                            <label>
+                                📅 Exam Date
+                            </label>
+
+                            <input
+                                type="date"
+                                id="examDate"
+                                required
+                            >
+
+                        </div>
+
+
+
+                        <!-- STUDY HOURS -->
+
+                        <div class="form-group">
+
+                            <label>
+                                ⏰ Daily Study Hours
+                            </label>
+
+                            <input
+                                type="number"
+                                id="studyHours"
+                                min="1"
+                                max="24"
+                                placeholder="e.g. 3"
+                                required
+                            >
+
+                        </div>
+
+
+
+                        <!-- GOAL -->
+
+                        <div class="form-group">
+
+                            <label>
+                                🎯 Study Goal
+                            </label>
+
+                            <select id="goal">
+
+                                <option value="Exam Preparation">
+                                    Exam Preparation
+                                </option>
+
+                                <option value="Revision">
+                                    Revision
+                                </option>
+
+                                <option value="Learning">
+                                    Learn New Topics
+                                </option>
+
+                                <option value="Assignment">
+                                    Assignment Preparation
+                                </option>
+
+                            </select>
+
+                        </div>
+
+
+                    </div>
+
+
+
+                    <!-- NOTES -->
+
+                    <div class="form-group">
+
+                        <label>
+                            📝 Additional Notes
+                        </label>
+
+                        <textarea
+                            id="notes"
+                            placeholder="Tell Planora about your study requirements..."
+                        ></textarea>
+
+                    </div>
+
+
+
+                    <button
+                        type="submit"
+                        class="primary-btn planner-btn"
+                    >
+                        ✨ Generate Study Plan
+                    </button>
+
+
+                </form>
+
+            </div>
+
+
+
+            <!-- GENERATED PLAN -->
+
+            <div
+                id="generatedPlan"
+                class="generated-plan hidden"
+            ></div>
+
+
+        </section>
+
+
+
+        <!-- =================================================
+             MY PLANS
+        ================================================== -->
+
+        <section
+            id="plansSection"
+            class="content-section"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        📚 My Study Plans
+                    </h1>
+
+                    <p>
+                        Your saved study schedules.
+                    </p>
+
+                </div>
+
+
+                <button
+                    class="danger-btn"
+                    onclick="clearAllPlans()"
+                >
+                    🗑️ Clear All
+                </button>
+
+            </div>
+
+
+
+            <div id="plansContainer">
+
+                <div class="empty-state">
+
+                    <div>
+                        📭
+                    </div>
+
+                    <h3>
+                        No study plans yet
+                    </h3>
+
+                    <p>
+                        Create your first study plan to get started.
+                    </p>
+
+                    <button
+                        class="primary-btn"
+                        onclick="openPlanner()"
+                    >
+                        Create Plan
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             AI ASSISTANT
+        ================================================== -->
+
+        <section
+            id="aiSection"
+            class="content-section"
+        >
+
+            <div class="page-heading">
+
+                <div>
+
+                    <h1>
+                        🤖 Planora AI Assistant
+                    </h1>
+
+                    <p>
+                        Your study companion.
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="ai-card">
+
+
+                <div class="ai-avatar">
+                    🤖
+                </div>
+
+
+                <h2>
+                    AI Assistant is ready!
+                </h2>
+
+
+                <p>
+                    Ask me about study planning,
+                    revision strategies, time management
+                    and exam preparation.
+                </p>
+
+
+
+                <div class="ai-input">
+
+                    <input
+                        type="text"
+                        id="aiQuestion"
+                        placeholder="Ask something about your studies..."
+                    >
+
+
+                    <button
+                        type="button"
+                        onclick="askAI()"
+                    >
+                        Send →
+                    </button>
+
+                </div>
+
+
+
+                <div
+                    id="aiResponse"
+                    class="ai-response"
+                ></div>
+
+
+            </div>
+
+        </section>
+
+
+    </main>
+
+</div>
+
+
+
+<!-- =========================================================
+     FIREBASE FIRESTORE
+========================================================= -->
+
+<script type="module">
+
+    import {
+        initializeApp
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
+
+    import {
+        getFirestore
+    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+
+    // =====================================================
+    // 🔥 FIREBASE CONFIG
+    // =====================================================
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyBeVWkWb5m0EG_2YEqy1LMVDvnZ6nmw7kY",
+        authDomain: "planora-ai-b94c8.firebaseapp.com",
+        projectId: "planora-ai-b94c8",
+        storageBucket: "planora-ai-b94c8.firebasestorage.app",
+        messagingSenderId: "536412377280",
+        appId: "1:536412377280:web:613111d641454b59e21d25"
+    };
+
+
+    // =====================================================
+    // INITIALIZE FIREBASE
+    // =====================================================
+
+    try {
+
+        const firebaseApp =
+            initializeApp(firebaseConfig);
+
+
+        const db =
+            getFirestore(firebaseApp);
+
+
+        // Make Firestore available globally
+        window.planoraDB = db;
+
+
+        console.log(
+            "✅ Firebase Firestore connected successfully"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "❌ Firebase initialization error:",
+            error
+        );
+
+    }
+
+</script>
+
+
+
+<!-- =========================================================
+     PLANORA MAIN JAVASCRIPT
+========================================================= -->
+
+<script
+    src="{{ url_for('static', filename='script.js') }}"
+></script>
+
+
+</body>
+
+</html>

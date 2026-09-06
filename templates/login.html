@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Planora AI - Login</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body class="auth-body">
+
+<div class="auth-container">
+
+    <div class="auth-brand">
+        <div class="brand-logo">📚</div>
+
+        <h1>Planora <span>AI</span></h1>
+
+        <p>
+            Your intelligent study planner
+        </p>
+    </div>
+
+
+    <div class="auth-card">
+
+        <!-- LOGIN -->
+
+        <div id="loginSection">
+
+            <h2>Welcome back 👋</h2>
+
+            <p class="auth-subtitle">
+                Login to continue your study journey
+            </p>
+
+            {% if error %}
+            <div class="server-error">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('login') }}">
+
+                <label>Email</label>
+
+                <div class="input-box">
+                    <span>📧</span>
+
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+
+
+                <label>Password</label>
+
+                <div class="input-box">
+                    <span>🔒</span>
+
+                    <input
+                        type="password"
+                        name="password"
+                        id="loginPassword"
+                        placeholder="Enter your password"
+                        required
+                    >
+
+                    <button
+                        type="button"
+                        class="password-btn"
+                        onclick="togglePassword('loginPassword', this)"
+                    >
+                        👁️
+                    </button>
+                </div>
+
+
+                <button class="primary-btn" type="submit">
+                    Login →
+                </button>
+
+            </form>
+
+
+            <div class="divider">
+                <span>New to Planora?</span>
+            </div>
+
+
+            <button
+                class="secondary-btn"
+                onclick="showSignup()"
+            >
+                ✨ Create Account
+            </button>
+
+        </div>
+
+
+        <!-- SIGNUP -->
+
+        <div id="signupSection" class="hidden">
+
+            <button class="back-btn" onclick="showLogin()">
+                ← Back to Login
+            </button>
+
+            <h2>Create account 🚀</h2>
+
+            <p class="auth-subtitle">
+                Start planning your studies smarter
+            </p>
+
+
+            <form id="signupForm">
+
+                <label>Username</label>
+
+                <div class="input-box">
+                    <span>👤</span>
+
+                    <input
+                        type="text"
+                        name="username"
+                        placeholder="Enter your name"
+                        required
+                    >
+                </div>
+
+
+                <label>Email</label>
+
+                <div class="input-box">
+                    <span>📧</span>
+
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="Enter your email"
+                        required
+                    >
+                </div>
+
+
+                <label>Password</label>
+
+                <div class="input-box">
+                    <span>🔒</span>
+
+                    <input
+                        type="password"
+                        name="password"
+                        id="signupPassword"
+                        placeholder="Minimum 6 characters"
+                        minlength="6"
+                        required
+                    >
+
+                    <button
+                        type="button"
+                        class="password-btn"
+                        onclick="togglePassword('signupPassword', this)"
+                    >
+                        👁️
+                    </button>
+                </div>
+
+
+                <button class="primary-btn" type="submit">
+                    Create Account →
+                </button>
+
+            </form>
+
+
+            <div id="signupMessage"></div>
+
+        </div>
+
+    </div>
+
+
+    <p class="auth-footer">
+        🎯 Plan better. Study smarter. Achieve more.
+    </p>
+
+</div>
+
+
+<script>
+
+function showSignup() {
+
+    document.getElementById("loginSection")
+        .classList.add("hidden");
+
+    document.getElementById("signupSection")
+        .classList.remove("hidden");
+}
+
+
+function showLogin() {
+
+    document.getElementById("signupSection")
+        .classList.add("hidden");
+
+    document.getElementById("loginSection")
+        .classList.remove("hidden");
+}
+
+
+function togglePassword(id, button) {
+
+    const input = document.getElementById(id);
+
+    if (input.type === "password") {
+
+        input.type = "text";
+        button.textContent = "🙈";
+
+    } else {
+
+        input.type = "password";
+        button.textContent = "👁️";
+    }
+}
+
+
+document.getElementById("signupForm").addEventListener(
+    "submit",
+    async function(event) {
+
+        event.preventDefault();
+
+        const formData = new FormData(this);
+
+        const message =
+            document.getElementById("signupMessage");
+
+        message.innerHTML =
+            '<div class="loading-message">Creating account...</div>';
+
+        try {
+
+            const response = await fetch("/signup", {
+                method: "POST",
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+
+                message.innerHTML =
+                    '<div class="success-message">✅ Account created! Redirecting...</div>';
+
+                setTimeout(() => {
+                    window.location.href = "/dashboard";
+                }, 700);
+
+            } else {
+
+                message.innerHTML =
+                    `<div class="server-error">${result.message}</div>`;
+            }
+
+        } catch (error) {
+
+            message.innerHTML =
+                '<div class="server-error">Something went wrong. Please try again.</div>';
+        }
+
+    }
+);
+
+</script>
+
+</body>
+</html>
